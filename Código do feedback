@@ -1,0 +1,175 @@
+from lyse import *
+from pylab import *
+from runmanager.remote import set_globals, engage, get_globals
+import numpy as np
+from scipy.signal import find_peaks
+import time
+import matplotlib.pyplot as plt
+
+
+start_time = time.time()
+
+time.sleep(180)
+
+# Let's obtain our data for this shot -- globals, image attributes and
+# the results of any previously run single-shot routines:
+ser = data(path)
+
+# Get a global called x:
+x = ser['filepath']
+
+# If we want actual measurement data, we'll have to instantiate a Run object:
+run = Run(path)
+
+images_labels = run.get_all_image_labels()
+
+image = run.get_image('cam0', 'shot1', 'atoms')
+
+figure(1)
+
+print(size(image))
+
+
+# Suponha que 'image_data' seja a sua imagem de entrada
+# Defina as coordenadas de início e fim da região que você deseja cortar
+start_row = 500  # Altere para a linha inicial da região
+end_row = 780   # Altere para a linha final da região
+start_col = 970  # Altere para a coluna inicial da região
+end_col = 1080   # Altere para a coluna final da região
+
+# Corte a região da imagem usando indexação
+cropped_region = image[start_row:end_row, start_col:end_col]
+
+# Exiba a imagem cortada (opcional)
+figure(1)
+imshow(cropped_region)
+
+# Calcule a soma das intensidades dos pixels ao longo das colunas da região cortada
+sum_intensities = np.sum(cropped_region, axis=0)
+
+# Encontre a posição do máximo no perfil de intensidade
+x_coordinate_of_maximum = np.argmax(sum_intensities)
+
+# Exiba a plotagem da soma das intensidades dos pixels
+# plt.plot(sum_intensities)
+# plt.title('Soma das Intensidades ao Longo das Colunas')
+# plt.xlabel('Posição na Coluna')
+# plt.ylabel('Soma de Intensidades')
+# plt.show()
+
+# Exiba a posição do valor máximo de intensidade
+print("Posição do Valor Máximo de Intensidade:", x_coordinate_of_maximum)
+
+
+
+x_coordinate_reference = 55
+
+
+voltagevalue = get_globals()['piezovalue']
+
+
+
+# Calcule a média das intensidades das linhas da região cortada
+average_curve = np.mean(cropped_region, axis=0)
+
+figure(2)
+plot(average_curve)
+
+
+# # Encontre os máximos locais na curva média de intensidades sem um valor mínimo de proeminência
+peaks = find_peaks(average_curve,prominence = 500)
+
+if len(peaks[0]) >= 2:
+    # Encontre a posição do pico máximo
+    max_peak_position = np.argmax(average_curve)
+
+    # Encontre as posições de todos os picos encontrados
+    all_peak_positions = peaks[0]
+
+    # Encontre o pico adjacente ao pico máximo
+    adjacent_peak_positions = [pos for pos in all_peak_positions if pos != max_peak_position]
+
+    if adjacent_peak_positions:
+        # Encontre o pico mais próximo ao pico máximo
+        nearest_adjacent_peak = min(adjacent_peak_positions, key=lambda x: abs(x - max_peak_position))
+
+        # Calcule a distância entre o pico máximo e o pico adjacente mais próximo
+        distance_between_peaks = abs(nearest_adjacent_peak - max_peak_position)
+
+        print("Distancia entre o pico máximo e um pico adjacente:", distance_between_peaks)
+    else:
+        print("Nenhum pico adjacente encontrado.")
+else:
+    print("Menos de dois picos significativos encontrados na curva média de intensidades.")
+
+a = -0.66
+Diff_Fringes = distance_between_peaks
+# Diff_Fringes = 9
+Dvoltage= Diff_Fringes/a
+print(f"Dvoltage: {Dvoltage} ")
+
+
+if x_coordinate_reference != x_coordinate_of_maximum:
+    
+    displacement = x_coordinate_of_maximum - x_coordinate_reference
+    
+    # Calcula o valor de voltagevalue com base no deslocamento e na relação linear (Pode parecer um pouco reduntante)
+    voltagevalue = voltagevalue - (displacement) / a  
+    if voltagevalue >= -3 * Dvoltage / 4:
+        voltagevalue += Dvoltage
+        if voltagevalue >= 9:
+            voltagevalue -= Dvoltage
+            if abs(voltagevalue) >= 10:
+                voltagevalue = get_globals()['piezovalue']
+        elif voltagevalue <= -9:
+            voltagevalue += Dvoltage
+            if abs(voltagevalue) >= 10:
+                voltagevalue = get_globals()['piezovalue']
+    elif voltagevalue <= 3*Dvoltage/4:
+        voltagevalue -= Dvoltage
+        if voltagevalue >= 9:
+            voltagevalue -= Dvoltage
+            if abs(voltagevalue) >= 10:
+                voltagevalue = get_globals()['piezovalue']
+        elif voltagevalue <= -9:
+            voltagevalue += Dvoltage
+            if abs(voltagevalue) >= 10:
+                voltagevalue = get_globals()['piezovalue']
+else:
+    # Lidar com o caso em que x_coordinate_reference é igual a x_coordinate_of_maximum
+    print("x_coordinate_reference e igual a x_coordinate_of_maximum")
+    voltagevalue = get_globals()['piezovalue']
+    print("voltagevalue:", voltagevalue)
+
+# Após as operações de ajuste
+if voltagevalue > 10:
+    voltagevalue = voltagevalue - Dvoltage
+    print("erro, refazendo")
+elif voltagevalue < -10:
+    print("erro, refazendo")
+    voltagevalue = voltagevalue + Dvoltage
+
+
+
+#print("Valor Maximo de Intensidade:", Maximum)
+print("Coordenada em x do Valor Maximo:", x_coordinate_of_maximum)
+
+# figure(2)
+# plot(average_curve)
+
+run.save_result('y', x_coordinate_of_maximum)
+
+print(get_globals(raw=False))
+
+set_globals({'piezovalue': voltagevalue})
+
+# Registre o tempo de término
+end_time = time.time()
+
+# Calcule o tempo decorrido
+elapsed_time = end_time - start_time
+
+print(f"Tempo decorrido: {elapsed_time} segundos")
+
+
+engage()
