@@ -1,5 +1,5 @@
 # feedback-system
-Um sistema de feedback pra labscript.
+Um sistema de feedback para correção da imagem de um padrão de interferencia.
 
 O codigo funciona da seguinte forma:
 
