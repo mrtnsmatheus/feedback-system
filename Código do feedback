@@ -11,14 +11,14 @@ start_time = time.time()
 
 time.sleep(180)
 
-# Let's obtain our data for this shot -- globals, image attributes and
-# the results of any previously run single-shot routines:
+# Vamos obter nossos dados para esta imagem -- globals, image attributes e
+# os resultados de quaisquer rotinas single-shot executadas anteriormente::
 ser = data(path)
 
-# Get a global called x:
+# Obtenha uma global chamado x:
 x = ser['filepath']
 
-# If we want actual measurement data, we'll have to instantiate a Run object:
+# Se quisermos dados de medição atuais, teremos que instanciar um Run object:
 run = Run(path)
 
 images_labels = run.get_all_image_labels()
